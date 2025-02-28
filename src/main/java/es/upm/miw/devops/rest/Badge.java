@@ -2,6 +2,8 @@ package es.upm.miw.devops.rest;
 
 public class Badge {
 
+
+
     private static final String BADGE_IMAGE_TEMPLATE = """
             <svg xmlns="http://www.w3.org/2000/svg" width="%d" height="20">
                 <linearGradient id="a" x2="0" y2="100%%">
