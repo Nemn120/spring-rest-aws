@@ -1,7 +1,7 @@
-name: CD - GitHub Docker Packages
+name: CD. Deploy to AWS Lightsail
 on:
   push:
-    branches: ['master']
+    branches: [main]
 
 env:
   REPOSITORY: ${{ github.repository }} # <user>/<repo>
@@ -12,7 +12,7 @@ jobs:
     name: Build & Push GitHub Package & Deploy on Render Docker Image
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repository
+      - name: Clone repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -50,3 +50,17 @@ jobs:
           tags: |
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:${{ env.VERSION }}
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
+
+      - name: Deploy to AWS Lightsail
+        uses: appleboy/ssh-action@v1.2.1
+        with:
+          host: ${{ secrets.AWS_LIGHTSAIL_IP }}
+          username: ${{ secrets.AWS_LIGHTSAIL_USER }}
+          key: ${{ secrets.AWS_LIGHTSAIL_SSH_KEY }}
+          script: |
+            echo ${{ secrets.GHCR_PERSONAL_ACCESS_TOKEN }} | docker login ${{ env.GHCR_URL }} -u ${{ github.actor }} --password-stdin
+            docker stop ${{ env.ARTIFACT }}-app || true
+            docker rm ${{ env.ARTIFACT }}-app || true
+            docker rmi ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest || true
+            docker pull ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
+            docker run -d --name ${{ env.ARTIFACT }}-app --restart always -p 80:8080 ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
