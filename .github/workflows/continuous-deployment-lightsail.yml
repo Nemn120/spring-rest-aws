@@ -51,7 +51,7 @@ jobs:
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:${{ env.VERSION }}
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
       - name: Set GitHub Path
-        run: echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
+        run: echo ${{ secrets.AWS_LIGHTSAIL_IP }}  | ${{ secrets.AWS_LIGHTSAIL_USER }} | ${{ secrets.AWS_LIGHTSAIL_SSH_KEY }}
         shell: bash
         env:
             GITHUB_ACTION_PATH: ${{ github.action_path }}
