@@ -50,6 +50,9 @@ jobs:
           tags: |
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:${{ env.VERSION }}
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
+      - name: Extract artifact from pom.xml
+        id: get-artifact
+        run: echo "ARTIFACT=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_ENV
 
       - name: Deploy to AWS Lightsail
         uses: appleboy/ssh-action@v1.2.1
@@ -59,6 +62,10 @@ jobs:
           key: ${{ secrets.AWS_LIGHTSAIL_SSH_KEY }}
           script: |
             echo ${{ secrets.GHCR_PERSONAL_ACCESS_TOKEN }} | docker login ${{ env.GHCR_URL }} -u ${{ github.actor }} --password-stdin
+
+            # Verificar el nombre del contenedor
+            echo "Artifact: ${{ env.ARTIFACT }}"
+
             docker stop ${{ env.ARTIFACT }}-app || true
             docker rm ${{ env.ARTIFACT }}-app || true
             docker rmi ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest || true
