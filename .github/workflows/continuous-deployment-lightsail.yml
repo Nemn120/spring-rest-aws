@@ -63,11 +63,18 @@ jobs:
           script: |
             echo ${{ secrets.GHCR_PERSONAL_ACCESS_TOKEN }} | docker login ${{ env.GHCR_URL }} -u ${{ github.actor }} --password-stdin
 
-            # Verificar el nombre del contenedor
-            echo "Artifact: ${{ env.ARTIFACT }}"
+            # Verificar el contenedor antes de detener o eliminar
+            if [ "$(docker ps -q -f name=${{ env.ARTIFACT }}-app)" ]; then
+              docker stop ${{ env.ARTIFACT }}-app
+              docker rm ${{ env.ARTIFACT }}-app
+            else
+              echo "El contenedor ${{ env.ARTIFACT }}-app no estaba en ejecución."
+            fi
 
-            docker stop ${{ env.ARTIFACT }}-app || true
-            docker rm ${{ env.ARTIFACT }}-app || true
-            docker rmi ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest || true
+            # Eliminar la imagen antigua si existe
+            docker images -q ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest && docker rmi ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest || echo "Imagen no encontrada."
+
+            # Descargar la nueva imagen y ejecutarla
             docker pull ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
             docker run -d --name ${{ env.ARTIFACT }}-app --restart always -p 80:8080 ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
+      
