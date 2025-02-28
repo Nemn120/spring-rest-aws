@@ -39,8 +39,7 @@ jobs:
           # 2º Configuración de Secrets en GitHub
           #    repositorio en GitHub >> settings >> secrets and variables >> actions >> new repository secret
           password: ${{ secrets.GHCR_PERSONAL_ACCESS_TOKEN }}
-      - name: Normalize repository name
-        run: echo "REPOSITORY=$(echo ${{ env.REPOSITORY }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build & Push Docker image
         uses: docker/build-push-action@v4
         with:
@@ -49,6 +48,9 @@ jobs:
           tags: |
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:${{ env.VERSION }}
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
+      - name: Extract artifact from pom.xml
+        id: get-artifact
+        run: echo "ARTIFACT=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_ENV
 
       - name: Deploy to AWS Lightsail
         uses: appleboy/ssh-action@v1.2.1
@@ -58,8 +60,18 @@ jobs:
           key: ${{ secrets.AWS_LIGHTSAIL_SSH_KEY }}
           script: |
             echo ${{ secrets.GHCR_PERSONAL_ACCESS_TOKEN }} | docker login ${{ env.GHCR_URL }} -u ${{ github.actor }} --password-stdin
-            docker stop ${{ env.ARTIFACT }}-app || true
-            docker rm ${{ env.ARTIFACT }}-app || true
-            docker rmi ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest || true
+
+            # Verificar el contenedor antes de detener o eliminar
+            if [ "$(docker ps -q -f name=${{ env.ARTIFACT }}-app)" ]; then
+              docker stop ${{ env.ARTIFACT }}-app
+              docker rm ${{ env.ARTIFACT }}-app
+            else
+              echo "El contenedor ${{ env.ARTIFACT }}-app no estaba en ejecución."
+            fi
+
+            # Eliminar la imagen antigua si existe
+            docker images -q ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest && docker rmi ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest || echo "Imagen no encontrada."
+
+            # Descargar la nueva imagen y ejecutarla
             docker pull ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
             docker run -d --name ${{ env.ARTIFACT }}-app --restart always -p 80:8080 ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
