@@ -50,7 +50,11 @@ jobs:
           tags: |
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:${{ env.VERSION }}
             ${{ env.GHCR_URL }}/${{ env.REPOSITORY }}:latest
-
+      - name: Set GitHub Path
+        run: echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
+        shell: bash
+        env:
+            GITHUB_ACTION_PATH: ${{ github.action_path }}
       - name: Deploy to AWS Lightsail
         uses: appleboy/ssh-action@v1.2.1
         with:
